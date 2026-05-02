@@ -1,0 +1,28 @@
+# Minimal startup config for verifying the WebSocket server.
+# This starts the server without ASR/VAD/TTS model loading.
+
+logging:
+  level: "INFO"
+  file_path: ""
+  json_format: false
+
+modules:
+  llm:
+    module_category: "llm"
+    adapter_type: "langchain"
+    enable_module: "dummy"
+    system_prompt: "You are a helpful assistant."
+    config:
+      dummy:
+        model_name: "gpt-3.5-turbo"
+        api_key: "dummy-for-startup-only"
+        temperature: 0.7
+
+  protocols:
+    module_category: "protocol"
+    adapter_type: "websocket"
+    config:
+      websocket:
+        host: "127.0.0.1"
+        port: 18765
+        websocket_max_message_size: 2097152

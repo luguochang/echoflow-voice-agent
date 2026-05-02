@@ -1,0 +1,84 @@
+# Full browser voice demo config for OpenAI-compatible APIs.
+# This starts ASR + VAD + LLM + TTS + WebSocket, matching frontend/src/main.js ws://localhost:8765.
+# Keep API keys in environment variables; do not write secrets into this file.
+
+logging:
+  level: "INFO"
+  file_path: ""
+  json_format: false
+
+modules:
+  asr:
+    enabled: true
+    module_category: "asr"
+    enable_module: "funasr_sensevoice"
+    adapter_type: "funasr_sensevoice"
+    config:
+      funasr_sensevoice:
+        model_dir: "outputs/models/asr/SenseVoiceSmall/models/iic--SenseVoiceSmall/snapshots/master"
+        device: "cpu"
+        sample_rate: 16000
+        channels: 1
+        sample_width: 2
+        language: "zh"
+
+  llm:
+    enabled: true
+    module_category: "llm"
+    adapter_type: "langchain"
+    enable_module: "default"
+    system_prompt: "你是一个简洁、友好的中文语音聊天助手。"
+    config:
+      default:
+        # Replace with a model supported by your OpenAI-compatible provider.
+        model_name: "openai/gpt-4.1-mini"
+        model_name_env_var: "MODEL_NAME"
+        api_key_env_var: "API_KEY"
+        base_url_env_var: "BASE_URL"
+        base_url: "https://openrouter.ai/api/v1"
+        temperature: 0.7
+        max_tokens: 1024
+        # Use raw HTTP/SSE instead of LangChain/OpenAI SDK streaming.
+        # This is useful for relays that work with plain /chat/completions but
+        # return 5xx through the OpenAI Python SDK.
+        raw_openai_compatible: true
+        request_timeout: 60
+
+  tts:
+    enabled: true
+    module_category: "tts"
+    adapter_type: "edge_tts"
+    config:
+      edge_tts:
+        voice: "zh-CN-XiaoxiaoNeural"
+        rate: "+0%"
+        volume: "+0%"
+        output_audio_format: "mp3"
+        sample_rate: 16000
+        save_generated_audio: false
+        audio_save_path: "outputs/tts_audio"
+
+  vad:
+    enabled: true
+    module_category: "vad"
+    adapter_type: "silero_vad"
+    config:
+      silero_vad:
+        model_repo_path: "outputs/models/vad/silero-vad"
+        model_name: "silero_vad"
+        threshold: 0.65
+        vad_sample_rate: 16000
+        min_silence_duration_ms_eos: 1500
+        max_speech_segment_duration_ms: 4000
+        window_size_samples: 512
+        device: "cpu"
+
+  protocols:
+    enabled: true
+    module_category: "protocol"
+    adapter_type: "websocket"
+    config:
+      websocket:
+        host: "127.0.0.1"
+        port: 8765
+        websocket_max_message_size: 2097152

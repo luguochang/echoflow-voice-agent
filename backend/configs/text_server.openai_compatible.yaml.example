@@ -1,0 +1,38 @@
+# Text-only browser demo config for OpenAI-compatible APIs.
+# This starts only LLM + WebSocket, matching frontend/src/main.js ws://localhost:8765.
+# Keep API keys in environment variables; do not write secrets into this file.
+
+logging:
+  level: "INFO"
+  file_path: ""
+  json_format: false
+
+modules:
+  llm:
+    module_category: "llm"
+    adapter_type: "langchain"
+    enable_module: "default"
+    system_prompt: "你是一个简洁、友好的中文聊天助手。"
+    config:
+      default:
+        # Replace with a model supported by your OpenAI-compatible provider.
+        model_name: "openai/gpt-4.1-mini"
+        model_name_env_var: "MODEL_NAME"
+        api_key_env_var: "API_KEY"
+        base_url_env_var: "BASE_URL"
+        base_url: "https://openrouter.ai/api/v1"
+        temperature: 0.7
+        max_tokens: 1024
+        # Use raw HTTP/SSE instead of LangChain/OpenAI SDK streaming.
+        # This is useful for relays that work with plain /chat/completions but
+        # return 5xx through the OpenAI Python SDK.
+        raw_openai_compatible: true
+
+  protocols:
+    module_category: "protocol"
+    adapter_type: "websocket"
+    config:
+      websocket:
+        host: "127.0.0.1"
+        port: 8765
+        websocket_max_message_size: 2097152

@@ -1,0 +1,145 @@
+"""audio_converter 单元测试"""
+import pytest
+import numpy as np
+from unittest.mock import MagicMock, patch
+from backend.core.models import AudioData, AudioFormat
+
+
+class TestConvertAudioFormat:
+    """convert_audio_format 测试类"""
+
+    def test_empty_audio_data_returns_empty_array(self):
+        """测试空音频数据返回空数组"""
+        import backend.utils.audio_converter as audio_converter
+
+        # 临时修改模块变量
+        original_torchaudio = audio_converter.TORCHAUDIO_AVAILABLE
+        original_pydub = audio_converter.PYDUB_AVAILABLE
+
+        try:
+            audio_converter.TORCHAUDIO_AVAILABLE = False
+            audio_converter.PYDUB_AVAILABLE = True
+
+            # 创建模拟 AudioData，绕过 pydantic 验证
+            audio = MagicMock()
+            audio.data = b""
+            audio.format = AudioFormat.WAV
+            audio.sample_rate = 16000
+            audio.channels = 1
+            audio.sample_width = 2
+
+            result = audio_converter.convert_audio_format(
+                audio=audio,
+                sample_rate=16000,
+                channels=1,
+                sample_width=2,
+                raise_on_error=False
+            )
+            assert result is not None
+            assert len(result) == 0
+        finally:
+            audio_converter.TORCHAUDIO_AVAILABLE = original_torchaudio
+            audio_converter.PYDUB_AVAILABLE = original_pydub
+
+    def test_no_library_available_returns_none(self):
+        """测试无可用库返回 None"""
+        import backend.utils.audio_converter as audio_converter
+
+        # 临时修改模块变量
+        original_torchaudio = audio_converter.TORCHAUDIO_AVAILABLE
+        original_pydub = audio_converter.PYDUB_AVAILABLE
+
+        try:
+            audio_converter.TORCHAUDIO_AVAILABLE = False
+            audio_converter.PYDUB_AVAILABLE = False
+
+            audio = AudioData(
+                data=b"some_data",
+                format=AudioFormat.WAV,
+                sample_rate=16000,
+                channels=1,
+                sample_width=2
+            )
+            result = audio_converter.convert_audio_format(
+                audio=audio,
+                sample_rate=16000,
+                channels=1,
+                sample_width=2,
+                raise_on_error=False
+            )
+            assert result is None
+        finally:
+            audio_converter.TORCHAUDIO_AVAILABLE = original_torchaudio
+            audio_converter.PYDUB_AVAILABLE = original_pydub
+
+    def test_no_library_available_raises_when_flag_set(self):
+        """测试无可用库时设置 raise_on_error=True 抛出异常"""
+        import backend.utils.audio_converter as audio_converter
+
+        # 临时修改模块变量
+        original_torchaudio = audio_converter.TORCHAUDIO_AVAILABLE
+        original_pydub = audio_converter.PYDUB_AVAILABLE
+
+        try:
+            audio_converter.TORCHAUDIO_AVAILABLE = False
+            audio_converter.PYDUB_AVAILABLE = False
+
+            audio = AudioData(
+                data=b"some_data",
+                format=AudioFormat.WAV,
+                sample_rate=16000,
+                channels=1,
+                sample_width=2
+            )
+            with pytest.raises(RuntimeError):
+                audio_converter.convert_audio_format(
+                    audio=audio,
+                    sample_rate=16000,
+                    channels=1,
+                    sample_width=2,
+                    raise_on_error=True
+                )
+        finally:
+            audio_converter.TORCHAUDIO_AVAILABLE = original_torchaudio
+            audio_converter.PYDUB_AVAILABLE = original_pydub
+
+    def test_pcm_input_uses_raw_pcm_path_without_torchaudio(self):
+        """测试裸 PCM 输入不会先调用 torchaudio 文件解码路径"""
+        import backend.utils.audio_converter as audio_converter
+
+        original_torchaudio = audio_converter.TORCHAUDIO_AVAILABLE
+        original_pydub = audio_converter.PYDUB_AVAILABLE
+
+        try:
+            audio_converter.TORCHAUDIO_AVAILABLE = True
+            audio_converter.PYDUB_AVAILABLE = True
+
+            samples = np.array([0, 1024, -1024, 2048], dtype=np.int16)
+            audio = AudioData(
+                data=samples.tobytes(),
+                format=AudioFormat.PCM,
+                sample_rate=16000,
+                channels=1,
+                sample_width=2,
+            )
+
+            with patch.object(
+                audio_converter,
+                "convert_audio_format_torchaudio",
+                side_effect=AssertionError("torchaudio should not decode raw PCM"),
+            ):
+                result = audio_converter.convert_audio_format(
+                    audio=audio,
+                    sample_rate=16000,
+                    channels=1,
+                    sample_width=2,
+                    output_format="pcm_f32le",
+                    raise_on_error=False,
+                )
+
+            assert result is not None
+            assert result.dtype == np.float32
+            assert result.shape == samples.shape
+        finally:
+            audio_converter.TORCHAUDIO_AVAILABLE = original_torchaudio
+            audio_converter.PYDUB_AVAILABLE = original_pydub
